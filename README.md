@@ -2,6 +2,8 @@
 
 A beautiful, real-time web dashboard for monitoring port usage across all your active coding projects. Built with a sleek terminal aesthetic and designed for developers who manage multiple services.
 
+![Port Monitor Dashboard](.github/screenshots/dashboard-terminal.png)
+
 ![Port Monitor Terminal](https://img.shields.io/badge/Terminal-Style-brightgreen)
 ![Python](https://img.shields.io/badge/Python-3.7+-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.0-red)
@@ -57,6 +59,10 @@ That's it! The monitor will automatically discover projects in common directorie
 - `~/code`
 
 ## 📊 What You'll See
+
+The Port Monitor provides a beautiful terminal-style interface showing all your projects and their port status:
+
+![Port Monitor Interface](.github/screenshots/dashboard-terminal.png)
 
 ```
 🖥️ port-monitor.sh • ~/projects
