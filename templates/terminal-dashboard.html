@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$ port-monitor --live</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --green: #238636;
+            --green-text: #3fb950;
+            --red: #da3633;
+            --red-text: #f85149;
+            --yellow: #d29922;
+            --yellow-text: #f2cc60;
+            --blue: #1f6feb;
+            --blue-text: #58a6ff;
+            --purple: #8957e5;
+            --cyan: #39c5cf;
+            --prompt: #f2cc60;
+            --cursor: #58a6ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        .terminal {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        .terminal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px 8px 0 0;
+            border-bottom: 1px solid var(--border);
+            margin: -20px -20px 20px -20px;
+        }
+
+        .terminal-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .terminal-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+        }
+
+        .control-btn.close { background: #ff5f56; }
+        .control-btn.minimize { background: #ffbd2e; }
+        .control-btn.maximize { background: #27ca3f; }
+
+        .command-line {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            font-family: inherit;
+        }
+
+        .prompt {
+            color: var(--prompt);
+            margin-right: 8px;
+            user-select: none;
+        }
+
+        .command {
+            color: var(--green-text);
+        }
+
+        .cursor {
+            background: var(--cursor);
+            width: 8px;
+            height: 16px;
+            margin-left: 4px;
+            animation: blink 1.2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .output-section {
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            color: var(--blue-text);
+            font-weight: 500;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.2s ease;
+        }
+
+        .stat-item:hover {
+            border-color: var(--blue);
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .stat-value.success { color: var(--green-text); }
+        .stat-value.error { color: var(--red-text); }
+        .stat-value.warning { color: var(--yellow-text); }
+        .stat-value.info { color: var(--blue-text); }
+
+        .projects-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            font-size: 13px;
+        }
+
+        .projects-table th {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            text-align: left;
+            padding: 12px 16px;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .projects-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        .projects-table tbody tr:hover {
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .projects-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .project-name {
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .project-description {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .project-framework {
+            color: var(--purple);
+            font-size: 11px;
+            background: rgba(137, 87, 229, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        .port-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .port-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .port-status {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .port-status.online {
+            background: var(--green);
+            box-shadow: 0 0 6px rgba(35, 134, 54, 0.6);
+        }
+
+        .port-status.offline {
+            background: var(--text-muted);
+        }
+
+        .port-number {
+            color: var(--cyan);
+            font-family: inherit;
+            min-width: 40px;
+        }
+
+        .port-type {
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .process-info {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        .process-pid {
+            color: var(--yellow-text);
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .action-btn:hover {
+            background: var(--bg-primary);
+            border-color: var(--blue);
+            color: var(--blue-text);
+        }
+
+        .action-btn.danger:hover {
+            border-color: var(--red);
+            color: var(--red-text);
+        }
+
+        .conflicts-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--red);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .conflict-title {
+            color: var(--red-text);
+            font-weight: 500;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .conflict-item {
+            background: rgba(218, 54, 51, 0.1);
+            border: 1px solid rgba(218, 54, 51, 0.2);
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .auto-refresh-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+        }
+
+        .refresh-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--green);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .controls-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 4px;
+        }
+
+        .toggle-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .toggle-btn:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--blue);
+            color: var(--blue-text);
+        }
+
+        .toggle-btn.active {
+            background: var(--blue);
+            border-color: var(--blue);
+            color: var(--text-primary);
+        }
+
+        .last-updated {
+            color: var(--text-muted);
+            font-size: 11px;
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            gap: 12px;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top: 2px solid var(--blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .ascii-art {
+            color: var(--text-muted);
+            font-size: 10px;
+            line-height: 1.2;
+            white-space: pre;
+            margin-bottom: 16px;
+            text-align: center;
+            user-select: none;
+        }
+
+        .updating .projects-table {
+            opacity: 0.6;
+            transition: opacity 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .terminal {
+                margin: 10px;
+                padding: 16px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .projects-table {
+                font-size: 12px;
+            }
+            
+            .projects-table th,
+            .projects-table td {
+                padding: 8px 12px;
+            }
+            
+            .controls-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="auto-refresh-indicator" id="autoRefresh">
+        <span class="refresh-dot"></span>
+        <span id="refreshStatus">auto-refresh: ON</span>
+    </div>
+
+    <div class="terminal">
+        <div class="terminal-header">
+            <div class="terminal-title">
+                <span>🖥️ port-monitor.sh</span>
+                <span>•</span>
+                <span id="windowTitle">~/projects</span>
+            </div>
+            <div class="terminal-controls">
+                <button class="control-btn close"></button>
+                <button class="control-btn minimize"></button>
+                <button class="control-btn maximize"></button>
+            </div>
+        </div>
+
+        <div class="command-line">
+            <span class="prompt">user@localhost:~$</span>
+            <span class="command">port-monitor --live --auto-discover</span>
+            <div class="cursor"></div>
+        </div>
+
+        <div class="controls-bar">
+            <div class="control-group">
+                <button class="toggle-btn active" id="refreshBtn" onclick="toggleAutoRefresh()">
+                    pause
+                </button>
+                <button class="toggle-btn" onclick="refreshNow()">refresh</button>
+            </div>
+            <div class="control-group">
+                <button class="toggle-btn" id="filterBtn" onclick="toggleFilter()">show active</button>
+                <button class="toggle-btn" onclick="showAll()">show all</button>
+            </div>
+        </div>
+
+        <div class="output-section">
+            <div class="section-header">
+                📊 SYSTEM OVERVIEW
+            </div>
+            <div class="stats-grid" id="statsGrid">
+                <!-- Stats will be populated here -->
+            </div>
+        </div>
+
+        <div class="conflicts-section" id="conflictsSection" style="display: none;">
+            <div class="conflict-title">
+                ⚠️ PORT CONFLICTS DETECTED
+            </div>
+            <div id="conflictsList"></div>
+        </div>
+
+        <div class="output-section">
+            <div class="section-header">
+                🔌 ACTIVE PROJECTS
+            </div>
+            <div id="projectsContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Scanning active projects...
+                </div>
+            </div>
+        </div>
+
+        <div class="last-updated" id="lastUpdated"></div>
+    </div>
+
+    <script>
+        let autoRefresh = true;
+        let refreshInterval;
+        let showActiveOnly = false;
+
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const refreshBtn = document.getElementById('refreshBtn');
+            const refreshStatus = document.getElementById('refreshStatus');
+            
+            if (autoRefresh) {
+                refreshBtn.textContent = 'pause';
+                refreshBtn.classList.add('active');
+                refreshStatus.textContent = 'auto-refresh: ON';
+                startAutoRefresh();
+            } else {
+                refreshBtn.textContent = 'resume';
+                refreshBtn.classList.remove('active');
+                refreshStatus.textContent = 'auto-refresh: OFF';
+                clearInterval(refreshInterval);
+            }
+        }
+
+        function toggleFilter() {
+            showActiveOnly = !showActiveOnly;
+            const filterBtn = document.getElementById('filterBtn');
+            
+            if (showActiveOnly) {
+                filterBtn.textContent = 'show all';
+                filterBtn.classList.add('active');
+            } else {
+                filterBtn.textContent = 'show active';
+                filterBtn.classList.remove('active');
+            }
+            
+            loadPortData();
+        }
+
+        function showAll() {
+            showActiveOnly = false;
+            const filterBtn = document.getElementById('filterBtn');
+            filterBtn.textContent = 'show active';
+            filterBtn.classList.remove('active');
+            loadPortData();
+        }
+
+        function startAutoRefresh() {
+            refreshInterval = setInterval(() => {
+                if (autoRefresh) {
+                    loadPortData();
+                }
+            }, 3000);
+        }
+
+        function refreshNow() {
+            document.getElementById('projectsContainer').classList.add('updating');
+            loadPortData();
+        }
+
+        async function loadPortData() {
+            try {
+                const response = await fetch('/api/ports');
+                const data = await response.json();
+                
+                updateStats(data.summary);
+                updateProjects(data.projects);
+                updateConflicts(data.summary.conflicts);
+                updateLastUpdated(data.timestamp);
+                
+                document.getElementById('projectsContainer').classList.remove('updating');
+            } catch (error) {
+                console.error('Error loading port data:', error);
+                document.getElementById('projectsContainer').innerHTML = 
+                    '<div class="loading"><div class="spinner"></div>Connection error. Retrying...</div>';
+            }
+        }
+
+        function updateStats(summary) {
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = `
+                <div class="stat-item">
+                    <div>
+                        <div class="stat-label">Projects</div>
+                        <div class="stat-value info">${summary.total_projects}</div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div>
+                        <div class="stat-label">Active Ports</div>
+                        <div class="stat-value ${summary.active_ports > 0 ? 'warning' : 'success'}">${summary.active_ports}</div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div>
+                        <div class="stat-label">Available</div>
+                        <div class="stat-value success">${summary.available_ports}</div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div>
+                        <div class="stat-label">Conflicts</div>
+                        <div class="stat-value ${summary.conflicts.length > 0 ? 'error' : 'success'}">${summary.conflicts.length}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateProjects(projects) {
+            const container = document.getElementById('projectsContainer');
+            
+            // Filter projects if needed
+            const filteredProjects = Object.entries(projects).filter(([name, project]) => {
+                if (!showActiveOnly) return true;
+                return Object.values(project.ports).some(port => port.in_use);
+            });
+
+            if (filteredProjects.length === 0) {
+                container.innerHTML = '<div class="loading">No projects found matching current filter</div>';
+                return;
+            }
+
+            let html = `
+                <table class="projects-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Project</th>
+                            <th style="width: 15%;">Framework</th>
+                            <th style="width: 30%;">Ports</th>
+                            <th style="width: 30%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            filteredProjects.forEach(([projectName, project]) => {
+                const portsList = Object.entries(project.ports).map(([portType, portInfo]) => {
+                    const statusClass = portInfo.in_use ? 'online' : 'offline';
+                    const processText = portInfo.process ? 
+                        `<span class="process-info">PID: <span class="process-pid">${portInfo.process.pid}</span></span>` : '';
+                    
+                    return `
+                        <div class="port-item">
+                            <div class="port-status ${statusClass}"></div>
+                            <div class="port-number">${portInfo.port}</div>
+                            <div class="port-type">${portType}</div>
+                            ${processText}
+                        </div>
+                    `;
+                }).join('');
+
+                const actions = Object.entries(project.ports).map(([portType, portInfo]) => {
+                    if (!portInfo.in_use) return '';
+                    
+                    return `
+                        <button class="action-btn danger" onclick="killProcess(${portInfo.process?.pid || 0}, ${portInfo.port})" title="Kill process ${portInfo.process?.pid}">
+                            kill
+                        </button>
+                        <a class="action-btn" onclick="window.open('http://localhost:${portInfo.port}', '_blank')" title="Open in browser">
+                            open
+                        </a>
+                        <button class="action-btn" onclick="copyToClipboard('lsof -i :${portInfo.port}')" title="Copy port check command">
+                            lsof
+                        </button>
+                        <button class="action-btn" onclick="copyToClipboard('kill -9 ${portInfo.process?.pid || 'PID'}')" title="Copy kill command">
+                            copy
+                        </button>
+                    `;
+                }).join('');
+
+                html += `
+                    <tr>
+                        <td>
+                            <div class="project-name">${projectName}</div>
+                            <div class="project-description">${project.description || 'No description'}</div>
+                        </td>
+                        <td>
+                            <span class="project-framework">${project.framework}</span>
+                        </td>
+                        <td>
+                            <div class="port-list">${portsList}</div>
+                        </td>
+                        <td>
+                            <div class="actions">${actions}</div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function updateConflicts(conflicts) {
+            const conflictsSection = document.getElementById('conflictsSection');
+            const conflictsList = document.getElementById('conflictsList');
+            
+            if (conflicts.length === 0) {
+                conflictsSection.style.display = 'none';
+                return;
+            }
+            
+            conflictsSection.style.display = 'block';
+            let html = '';
+            
+            conflicts.forEach(conflict => {
+                html += `
+                    <div class="conflict-item">
+                        <strong>Port ${conflict.port}</strong> conflict between: ${conflict.projects.join(', ')}
+                    </div>
+                `;
+            });
+            
+            conflictsList.innerHTML = html;
+        }
+
+        function updateLastUpdated(timestamp) {
+            const lastUpdated = document.getElementById('lastUpdated');
+            const date = new Date(timestamp);
+            lastUpdated.textContent = `Last updated: ${date.toLocaleTimeString()} • Press Ctrl+C to exit`;
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification(`Copied: ${text}`, 'info');
+            }).catch(() => {
+                showNotification('Failed to copy to clipboard', 'error');
+            });
+        }
+
+        async function killProcess(pid, port) {
+            if (!pid || pid === 0) {
+                showNotification('No valid PID to kill', 'error');
+                return;
+            }
+
+            // Ask for confirmation
+            if (!confirm(`Kill process ${pid} using port ${port}?`)) {
+                return;
+            }
+
+            try {
+                showNotification(`Killing process ${pid}...`, 'info');
+                
+                const response = await fetch(`/api/kill/${pid}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification(`✓ ${result.message}`, 'success');
+                    // Refresh the data to show the updated port status
+                    setTimeout(() => loadPortData(), 1000);
+                } else {
+                    showNotification(`✗ ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showNotification(`Error killing process: ${error.message}`, 'error');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.innerHTML = `
+                <span>${message}</span>
+                <button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;margin-left:10px;cursor:pointer;">×</button>
+            `;
+
+            // Add notification styles if not already added
+            if (!document.getElementById('notification-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'notification-styles';
+                styles.innerHTML = `
+                    .notification {
+                        position: fixed;
+                        top: 70px;
+                        right: 20px;
+                        background: var(--bg-secondary);
+                        border: 1px solid var(--border);
+                        color: var(--text-primary);
+                        padding: 12px 16px;
+                        border-radius: 6px;
+                        font-size: 13px;
+                        z-index: 1001;
+                        max-width: 400px;
+                        word-wrap: break-word;
+                        animation: slideIn 0.3s ease;
+                    }
+                    
+                    .notification-success {
+                        border-color: var(--green);
+                        background: rgba(35, 134, 54, 0.1);
+                        color: var(--green-text);
+                    }
+                    
+                    .notification-error {
+                        border-color: var(--red);
+                        background: rgba(218, 54, 51, 0.1);
+                        color: var(--red-text);
+                    }
+                    
+                    .notification-info {
+                        border-color: var(--blue);
+                        background: rgba(31, 111, 235, 0.1);
+                        color: var(--blue-text);
+                    }
+                    
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+
+            // Add to page
+            document.body.appendChild(notification);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.style.animation = 'slideIn 0.3s ease reverse';
+                    setTimeout(() => notification.remove(), 300);
+                }
+            }, 5000);
+        }
+
+        // Initialize the terminal dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPortData();
+            startAutoRefresh();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'r':
+                        e.preventDefault();
+                        refreshNow();
+                        break;
+                    case ' ':
+                        e.preventDefault();
+                        toggleAutoRefresh();
+                        break;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
